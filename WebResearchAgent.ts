@@ -208,8 +208,18 @@ class WebResearchAgent {
 
     public async generateResearchPaper(steps: ResearchStep[]): Promise<string> {
         console.log('\n📝 Generating research paper...');
+
+        // Create a list of all unique sources
+        const sources = new Set<string>();
+        steps.forEach(step => {
+            step.results.forEach(result => {
+                sources.add(result.link);
+            });
+        });
+
         const researchSummary = steps.map(step => `
             Query: ${step.query}
+            Sources: ${step.results.map(r => r.link).join(', ')}
             Findings: ${step.synthesis}
         `).join('\n\n');
 
@@ -223,21 +233,34 @@ class WebResearchAgent {
             3. Discusses implications and connections between different aspects
             4. Identifies limitations and areas for future research
             5. Concludes with key takeaways
+            6. Includes a References section at the end
             
-            Format the paper with appropriate sections and citations to the search results.
+            Important formatting requirements:
+            - When citing information from sources, use numbered citations like [1], [2], etc.
+            - Add a "References" section at the end listing all sources with their URLs
+            - Format each reference as: "[number] Title - URL"
+            - Make sure to cite relevant sources throughout the paper
+            - Use Markdown formatting
+    
+            Available sources:
+            ${Array.from(sources).map((url, index) => `[${index + 1}] ${url}`).join('\n')}
         `;
 
         const completion = await this.openai.chat.completions.create({
             model: this.model,
             messages: [
-                { role: "system", content: "You are a research paper writer synthesizing findings from web research." },
+                {
+                    role: "system",
+                    content: "You are a research paper writer synthesizing findings from web research. Use Markdown formatting and include proper citations."
+                },
                 { role: "user", content: prompt }
             ],
             temperature: 0
         });
 
-        console.log('✅ Research paper generated');
-        return completion.choices[0].message.content || '';
+        const paper = completion.choices[0].message.content || '';
+        return paper;
+
     }
 }
 
