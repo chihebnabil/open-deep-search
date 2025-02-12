@@ -8,12 +8,14 @@ class WebResearchAgent {
     private searchApiKey: string;
     private searchApiHost: string;
     private firecrawl: FirecrawlApp;
+    private model: string;
 
 
     constructor() {
         const apiKey = process.env.OPENAI_API_KEY;
         const searchApiKey = process.env.RAPIDAPI_KEY;
         const firecrawlApiKey = process.env.FIRECRAWL_API_KEY;
+        const aiModel = process.env.AI_MODEL;
 
         if (!apiKey) {
             throw new Error('OPENAI_API_KEY environment variable is not set');
@@ -31,6 +33,7 @@ class WebResearchAgent {
         this.searchApiKey = searchApiKey;
         this.searchApiHost = 'affordable-google-search-api.p.rapidapi.com';
         this.firecrawl = new FirecrawlApp({ apiKey: firecrawlApiKey });
+        this.model = aiModel || "gpt-4o";
 
     }
 
@@ -122,7 +125,7 @@ class WebResearchAgent {
             Provide your analysis in a detailed but concise format.
         `;
         const completion = await this.openai.chat.completions.create({
-            model: "gpt-4o",
+            model: this.model,
             messages: [
                 { role: "system", content: "You are a research assistant helping to gather and analyze information from web searches." },
                 { role: "user", content: prompt }
@@ -152,7 +155,7 @@ class WebResearchAgent {
         `;
 
         const completion = await this.openai.chat.completions.create({
-            model: "gpt-4o",
+            model: this.model,
             messages: [
                 { role: "system", content: "You are a research assistant helping to generate effective follow-up search queries." },
                 { role: "user", content: prompt }
@@ -225,7 +228,7 @@ class WebResearchAgent {
         `;
 
         const completion = await this.openai.chat.completions.create({
-            model: "gpt-4o",
+            model: this.model,
             messages: [
                 { role: "system", content: "You are a research paper writer synthesizing findings from web research." },
                 { role: "user", content: prompt }
