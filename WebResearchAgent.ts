@@ -2,6 +2,7 @@ import axios from 'axios';
 import { OpenAI } from 'openai';
 import { SearchResult, ResearchStep } from './interfaces';
 import FirecrawlApp, { ScrapeResponse } from '@mendable/firecrawl-js';
+import { reportTypePrompts, SYNTHESIS_PROMPT } from './prompts';
 
 class WebResearchAgent {
     private openai: OpenAI;
@@ -116,13 +117,7 @@ class WebResearchAgent {
                 ---
             `).join('\n')}
             
-            Please analyze these search results and their full content to:
-            1. Extract key information relevant to the topic
-            2. Identify any gaps that need further research
-            3. Suggest follow-up questions or areas to explore
-            4. Synthesize the findings with previous research
-            
-            Provide your analysis in a detailed but concise format.
+            ${SYNTHESIS_PROMPT}
         `;
         const completion = await this.openai.chat.completions.create({
             model: this.model,
@@ -206,8 +201,8 @@ class WebResearchAgent {
         return steps;
     }
 
-    public async generateResearchPaper(steps: ResearchStep[]): Promise<string> {
-        console.log('\n📝 Generating research paper...');
+    public async generateReport(steps: ResearchStep[], reportType: string = 'comprehensive'): Promise<string> {
+        console.log('\n📝 Generating report...');
 
         // Create a list of all unique sources
         const sources = new Set<string>();
@@ -223,25 +218,23 @@ class WebResearchAgent {
             Findings: ${step.synthesis}
         `).join('\n\n');
 
+
+
         const prompt = `
             Based on the following research:
             ${researchSummary}
             
-            Generate a well-structured research paper that:
-            1. Introduces the topic and its significance
-            2. Presents the main findings and supporting evidence
-            3. Discusses implications and connections between different aspects
-            4. Identifies limitations and areas for future research
-            5. Concludes with key takeaways
-            6. Includes a References section at the end
+            ${reportTypePrompts[reportType] || reportTypePrompts['comprehensive']}
             
-            Important formatting requirements:
-            - When citing information from sources, use numbered citations like [1], [2], etc.
-            - Add a "References" section at the end listing all sources with their URLs
-            - Format each reference as: "[number] Title - URL"
-            - Make sure to cite relevant sources throughout the paper
-            - Use Markdown formatting
-    
+            Formatting requirements:
+            - Use Markdown formatting for clear structure
+            - Include citations using [1], [2], etc.
+            - Add a References section listing all sources
+            - Use tables for comparing data where appropriate
+            - Use bullet points for lists
+            - Include relevant quotes when they add value
+            - Break down complex information into digestible sections
+            
             Available sources:
             ${Array.from(sources).map((url, index) => `[${index + 1}] ${url}`).join('\n')}
         `;

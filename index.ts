@@ -20,8 +20,8 @@ async function main() {
     // Perform multi-turn research
     const researchSteps = await agent.researchTopic(topic, MAX_RESEARCH_STEPS);
     // Generate final paper
-    const paper = await agent.generateResearchPaper(researchSteps);
-    console.log("saving research paper to file");
+    const paper = await agent.generateReport(researchSteps);
+    console.log("saving the report to file");
     // save the paper to a file in /reasarch folder
     const dir = './research';
     if (!fs.existsSync(dir)) {
