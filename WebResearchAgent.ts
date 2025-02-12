@@ -2,7 +2,15 @@ import axios from 'axios';
 import { OpenAI } from 'openai';
 import { SearchResult, ResearchStep } from './interfaces';
 import FirecrawlApp, { ScrapeResponse } from '@mendable/firecrawl-js';
-import { reportTypePrompts, SYNTHESIS_PROMPT } from './prompts';
+import { 
+    reportTypePrompts, 
+    SYNTHESIS_PROMPT, 
+    FOLLOW_UP_QUERIES_PROMPT,
+    REPORT_FORMATTING_REQUIREMENTS,
+    RESEARCH_ASSISTANT_SYSTEM_PROMPT,
+    RESEARCH_PAPER_WRITER_SYSTEM_PROMPT,
+    QUERY_GENERATOR_SYSTEM_PROMPT
+} from './prompts';
 
 class WebResearchAgent {
     private openai: OpenAI;
@@ -122,7 +130,7 @@ class WebResearchAgent {
         const completion = await this.openai.chat.completions.create({
             model: this.model,
             messages: [
-                { role: "system", content: "You are a research assistant helping to gather and analyze information from web searches." },
+                { role: "system", content: RESEARCH_ASSISTANT_SYSTEM_PROMPT },
                 { role: "user", content: prompt }
             ],
             temperature: 0
@@ -141,18 +149,13 @@ class WebResearchAgent {
             Based on our research about "${topic}" and our current findings:
             ${currentFindings}
             
-            Generate 3 specific follow-up search queries that would help:
-            1. Fill gaps in our current knowledge
-            2. Verify important claims
-            3. Explore related aspects we haven't covered
-            
-            Return ONLY search queries that are clear and contain no special characters.
+            ${FOLLOW_UP_QUERIES_PROMPT}
         `;
 
         const completion = await this.openai.chat.completions.create({
             model: this.model,
             messages: [
-                { role: "system", content: "You are a research assistant helping to generate effective follow-up search queries." },
+                { role: "system", content: QUERY_GENERATOR_SYSTEM_PROMPT },
                 { role: "user", content: prompt }
             ],
             function_call: { name: "get_search_queries" },
@@ -257,14 +260,7 @@ class WebResearchAgent {
             
             ${reportTypePrompts[reportType] || reportTypePrompts['comprehensive']}
             
-            Formatting requirements:
-            - Use Markdown formatting for clear structure
-            - Include citations using [1], [2], etc.
-            - Add a References section listing all sources
-            - Use tables for comparing data where appropriate
-            - Use bullet points for lists
-            - Include relevant quotes when they add value
-            - Break down complex information into digestible sections
+            ${REPORT_FORMATTING_REQUIREMENTS}
             
             Available sources:
             ${Array.from(sources).map((url, index) => `[${index + 1}] ${url}`).join('\n')}
@@ -275,7 +271,7 @@ class WebResearchAgent {
             messages: [
                 {
                     role: "system",
-                    content: "You are a research paper writer synthesizing findings from web research. Use Markdown formatting and include proper citations."
+                    content: RESEARCH_PAPER_WRITER_SYSTEM_PROMPT
                 },
                 { role: "user", content: prompt }
             ],
