@@ -146,7 +146,7 @@ class WebResearchAgent {
             2. Verify important claims
             3. Explore related aspects we haven't covered
             
-            Format each query as a specific search term or phrase.
+            Return ONLY search queries that are clear and contain no special characters.
         `;
 
         const completion = await this.openai.chat.completions.create({
@@ -155,15 +155,46 @@ class WebResearchAgent {
                 { role: "system", content: "You are a research assistant helping to generate effective follow-up search queries." },
                 { role: "user", content: prompt }
             ],
+            function_call: { name: "get_search_queries" },
+            functions: [
+                {
+                    name: "get_search_queries",
+                    description: "Get three follow-up search queries",
+                    parameters: {
+                        type: "object",
+                        properties: {
+                            queries: {
+                                type: "array",
+                                items: {
+                                    type: "string",
+                                    description: "A search query containing only alphanumeric characters, spaces, and basic punctuation"
+                                },
+                                minItems: 3,
+                                maxItems: 3
+                            }
+                        },
+                        required: ["queries"]
+                    }
+                }
+            ],
             temperature: 0
         });
 
-        const queries = completion.choices[0].message.content?.split('\n')
-            .filter(q => q.trim().length > 0)
-            .slice(0, 3) || [];
+        const responseContent = completion.choices[0].message.function_call?.arguments;
+        if (!responseContent) {
+            console.warn('⚠️ No queries generated, using fallback');
+            return [`${topic} latest research`];
+        }
 
-        console.log(`✅ Generated ${queries.length} follow-up queries`);
-        return queries;
+        try {
+            const { queries } = JSON.parse(responseContent) as { queries: string[] };
+            console.log(`✅ Generated ${queries.length} follow-up queries`);
+            // Sanitize queries to ensure they're search-safe
+            return queries.map((query: string) => query.replace(/[^\w\s.,?-]/g, '').trim());
+        } catch (error) {
+            console.error('❌ Error parsing queries:', error);
+            return [`${topic} latest research`];
+        }
     }
 
     public async researchTopic(topic: string, maxSteps: number = 3): Promise<ResearchStep[]> {
