@@ -1,6 +1,8 @@
 # Open Deep Search
 
-An AI-powered web research assistant that performs deep research on any topic by combining web searching, content crawling, and AI synthesis capabilities.
+An AI-powered web research tool that performs deep research on any topic by combining web searching, content crawling, and AI synthesis capabilities.
+
+> **Note:** I'm using my own [affordable Google Search API](https://rapidapi.com/remote-skills-remote-skills-default/api/affordable-google-search-api) , which is currently hosted on RapidAPI.
 
 ## Features
 
