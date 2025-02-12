@@ -35,7 +35,7 @@ FIRECRAWL_API_KEY=your_firecrawl_key
 MAX_RESEARCH_STEPS=5
 SEARCH_COUNTRY=us
 SEARCH_LANG=en
-SEARCH_DATE_RANGE=m
+SEARCH_DATE_RANGE=lastYear
 ```
 
 ## Usage
@@ -89,9 +89,7 @@ flowchart TB
 ## Limitations
 
 - Depends on third-party API availability
-- Search results limited to recent content
 - Web crawling may be blocked by some websites
-- API costs may apply
 
 ## License
 

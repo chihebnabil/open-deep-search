@@ -68,7 +68,7 @@ class WebResearchAgent {
                     query,
                     country: process.env.SEARCH_COUNTRY || 'us',
                     lang: process.env.SEARCH_LANG || 'en',
-                    dateRange: process.env.SEARCH_DATE_RANGE || 'm',
+                    dateRange: process.env.SEARCH_DATE_RANGE || 'lastYear',
                 },
                 {
                     headers: {
