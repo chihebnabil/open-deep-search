@@ -1,27 +1,19 @@
 import axios from 'axios';
 import { OpenAI } from 'openai';
-
-interface SearchResult {
-    title: string;
-    link: string;
-    snippet: string;
-    date?: string;
-}
-
-interface ResearchStep {
-    query: string;
-    results: SearchResult[];
-    synthesis: string;
-}
+import { SearchResult, ResearchStep } from './interfaces';
+import FirecrawlApp, { ScrapeResponse } from '@mendable/firecrawl-js';
 
 class WebResearchAgent {
     private openai: OpenAI;
     private searchApiKey: string;
     private searchApiHost: string;
+    private firecrawl: FirecrawlApp;
+
 
     constructor() {
         const apiKey = process.env.OPENAI_API_KEY;
         const searchApiKey = process.env.RAPIDAPI_KEY;
+        const firecrawlApiKey = process.env.FIRECRAWL_API_KEY;
 
         if (!apiKey) {
             throw new Error('OPENAI_API_KEY environment variable is not set');
@@ -30,23 +22,50 @@ class WebResearchAgent {
         if (!searchApiKey) {
             throw new Error('RAPIDAPI_KEY environment variable is not set');
         }
-
+        if (!firecrawlApiKey) {
+            throw new Error('FIRECRAWL_API_KEY environment variable is not set');
+        }
         this.openai = new OpenAI({
             apiKey: apiKey
         });
         this.searchApiKey = searchApiKey;
         this.searchApiHost = 'affordable-google-search-api.p.rapidapi.com';
+        this.firecrawl = new FirecrawlApp({ apiKey: firecrawlApiKey });
+
+    }
+
+    private async crawlWebContent(urls: string[]): Promise<Map<string, string>> {
+        console.log(`🔍 Crawling ${urls.length} URLs for content...`);
+        const contentMap = new Map<string, string>();
+
+        for (const url of urls) {
+            try {
+                console.log(`  Crawling: ${url}`);
+                const scrapeResult = await this.firecrawl.scrapeUrl(url, { formats: ['markdown'] }) as ScrapeResponse;
+                if (!scrapeResult.markdown) {
+                    console.error(`  ❌ No content found for ${url}`);
+                    continue;
+                }
+                contentMap.set(url, scrapeResult.markdown);
+                console.log(`  ✅ Successfully crawled ${url}`);
+            } catch (error) {
+                console.error(`  ❌ Error crawling ${url}:`, error);
+            }
+        }
+
+        return contentMap;
     }
 
     private async searchWeb(query: string): Promise<SearchResult[]> {
+        console.log(`🔎 Searching web for: "${query}"`);
         try {
             const response = await axios.post(
                 'https://affordable-google-search-api.p.rapidapi.com/api/google/search',
                 {
                     query,
-                    country: 'us',
-                    lang: 'en',
-                    dateRange: 'lastYear'
+                    country: process.env.SEARCH_COUNTRY || 'us',
+                    lang: process.env.SEARCH_LANG || 'en',
+                    dateRange: process.env.SEARCH_DATE_RANGE || 'm',
                 },
                 {
                     headers: {
@@ -57,14 +76,17 @@ class WebResearchAgent {
                 }
             );
 
-            return response.data.serp.map((result: any) => ({
-                title: result.title,
-                link: result.link,
-                snippet: result.snippet,
-                date: result.date
-            }));
+            console.log(`✅ Found ${response.data.serp.length} search results`);
+            return response.data.serp
+                .slice(0, 3) // Take only first 3 results
+                .map((result: any) => ({
+                    title: result.title,
+                    link: result.link,
+                    snippet: result.snippet,
+                    date: result.date
+                }));
         } catch (error) {
-            console.error('Search API error:', error);
+            console.error('❌ Search API error:', error);
             return [];
         }
     }
@@ -74,19 +96,24 @@ class WebResearchAgent {
         results: SearchResult[],
         previousFindings: string
     ): Promise<string> {
+        console.log(`🤔 Synthesizing ${results.length} search results...`);
+
+        // Crawl content from search result URLs
+        const urls = results.map(r => r.link);
+        const pageContents = await this.crawlWebContent(urls);
+
+        console.log('💭 Analyzing content with AI...');
         const prompt = `
             Topic: ${topic}
             Previous findings: ${previousFindings}
             
             New search results:
             ${results.map(r => `
-                Title: ${r.title}
-                Snippet: ${r.snippet}
-                Date: ${r.date || 'N/A'}
+                Content: ${pageContents.get(r.link) || 'Content unavailable'}
                 ---
             `).join('\n')}
             
-            Please analyze these search results and:
+            Please analyze these search results and their full content to:
             1. Extract key information relevant to the topic
             2. Identify any gaps that need further research
             3. Suggest follow-up questions or areas to explore
@@ -94,16 +121,16 @@ class WebResearchAgent {
             
             Provide your analysis in a detailed but concise format.
         `;
-
         const completion = await this.openai.chat.completions.create({
             model: "gpt-4o",
             messages: [
                 { role: "system", content: "You are a research assistant helping to gather and analyze information from web searches." },
                 { role: "user", content: prompt }
             ],
-            temperature: 0.7
+            temperature: 0
         });
 
+        console.log('✅ Synthesis complete');
         return completion.choices[0].message.content || '';
     }
 
@@ -111,6 +138,7 @@ class WebResearchAgent {
         topic: string,
         currentFindings: string
     ): Promise<string[]> {
+        console.log('🔄 Generating follow-up queries...');
         const prompt = `
             Based on our research about "${topic}" and our current findings:
             ${currentFindings}
@@ -129,23 +157,26 @@ class WebResearchAgent {
                 { role: "system", content: "You are a research assistant helping to generate effective follow-up search queries." },
                 { role: "user", content: prompt }
             ],
-            temperature: 0.8
+            temperature: 0
         });
 
         const queries = completion.choices[0].message.content?.split('\n')
             .filter(q => q.trim().length > 0)
             .slice(0, 3) || [];
 
+        console.log(`✅ Generated ${queries.length} follow-up queries`);
         return queries;
     }
 
     public async researchTopic(topic: string, maxSteps: number = 3): Promise<ResearchStep[]> {
+        console.log(`\n🚀 Starting research on: "${topic}" (${maxSteps} steps)`);
         const steps: ResearchStep[] = [];
         let currentQuery = topic;
         let allFindings = '';
 
         for (let i = 0; i < maxSteps; i++) {
-            console.log(`Research step ${i + 1}: ${currentQuery}`);
+            console.log(`\n📚 Research Step ${i + 1}/${maxSteps}`);
+            console.log(`Current query: "${currentQuery}"`);
 
             // Perform search
             const results = await this.searchWeb(currentQuery);
@@ -168,10 +199,12 @@ class WebResearchAgent {
             }
         }
 
+        console.log('\n✅ Research complete!');
         return steps;
     }
 
     public async generateResearchPaper(steps: ResearchStep[]): Promise<string> {
+        console.log('\n📝 Generating research paper...');
         const researchSummary = steps.map(step => `
             Query: ${step.query}
             Findings: ${step.synthesis}
@@ -197,9 +230,10 @@ class WebResearchAgent {
                 { role: "system", content: "You are a research paper writer synthesizing findings from web research." },
                 { role: "user", content: prompt }
             ],
-            temperature: 0.7
+            temperature: 0
         });
 
+        console.log('✅ Research paper generated');
         return completion.choices[0].message.content || '';
     }
 }

@@ -1,28 +1,34 @@
 import * as dotenv from 'dotenv';
 import path from 'path';
+import { WebResearchAgent } from "./WebResearchAgent";
+import fs from 'fs';
 
 dotenv.config({ path: path.resolve(__dirname, '.env') });
-console.log("Entire process.env:", process.env);
-console.log("DATABASE_URL:", process.env.DATABASE_URL);
-
-import { WebResearchAgent } from "./WebResearchAgent";
-// log the environment variables
-console.log(process.env.OPENAI_API_KEY);
-console.log(process.env.RAPIDAPI_KEY);
 
 async function main() {
     const agent = new WebResearchAgent();
-    
-    const topic = "Recent advances in quantum computing";
+
+    // read the topic from cli
+    const topic = process.argv[2];
+    if (!topic) {
+        console.error('Please provide a search topic to research');
+        return;
+    }
     console.log(`Starting research on: ${topic}`);
-    
+
+    const MAX_RESEARCH_STEPS = process.env.MAX_RESEARCH_STEPS ? parseInt(process.env.MAX_RESEARCH_STEPS) : 5;
     // Perform multi-turn research
-    const researchSteps = await agent.researchTopic(topic, 3);
-    
+    const researchSteps = await agent.researchTopic(topic, MAX_RESEARCH_STEPS);
     // Generate final paper
     const paper = await agent.generateResearchPaper(researchSteps);
-    
-    console.log("Research Paper:");
+    console.log("saving research paper to file");
+    // save the paper to a file in /reasarch folder
+    const dir = './research';
+    if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+    }
+    fs.writeFileSync(`${dir}/${topic.replace(/ /g, '_')}.md`, paper);
+    console.log("Research:");
     console.log(paper);
 }
 
