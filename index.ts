@@ -27,7 +27,7 @@ async function main() {
     if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
     }
-    fs.writeFileSync(`${dir}/${topic.replace(/ /g, '_')}.md`, paper);
+    fs.writeFileSync(`${dir}/${topic.replace(/ /g, '_').trim()}.md`, paper);
     console.log("Research:");
     console.log(paper);
 }
