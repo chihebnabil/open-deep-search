@@ -78,6 +78,22 @@ export const FOLLOW_UP_QUERIES_PROMPT = `
     Return ONLY search queries that are clear and contain no special characters.
 `;
 
+export const MERMAID_CHART_REQUIREMENTS = `
+    When including charts or diagrams:
+    - Use Mermaid markdown syntax
+    - Wrap charts in \`\`\`mermaid blocks
+    - Support for: flowcharts, sequence diagrams, pie charts, gantt charts
+    - Keep charts simple and readable
+    - Include clear labels and titles
+    - Use consistent styling
+    Example format:
+    \`\`\`mermaid
+    graph TD
+        A[Start] --> B[Process]
+        B --> C[End]
+    \`\`\`
+`;
+
 export const REPORT_FORMATTING_REQUIREMENTS = `
     Formatting requirements:
     - Use Markdown formatting for clear structure
@@ -87,4 +103,5 @@ export const REPORT_FORMATTING_REQUIREMENTS = `
     - Use bullet points for lists
     - Include relevant quotes when they add value
     - Break down complex information into digestible sections
+    ${MERMAID_CHART_REQUIREMENTS}
 `;

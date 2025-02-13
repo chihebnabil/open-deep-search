@@ -252,8 +252,6 @@ class WebResearchAgent {
             Findings: ${step.synthesis}
         `).join('\n\n');
 
-
-
         const prompt = `
             Based on the following research:
             ${researchSummary}
@@ -261,6 +259,11 @@ class WebResearchAgent {
             ${reportTypePrompts[reportType] || reportTypePrompts['comprehensive']}
             
             ${REPORT_FORMATTING_REQUIREMENTS}
+            
+            Additional requirements:
+            - When presenting numerical data, trends, or relationships, use Mermaid charts
+            - Convert any tables with trends or relationships into visual charts
+            - Each chart must have a clear title and description
             
             Available sources:
             ${Array.from(sources).map((url, index) => `[${index + 1}] ${url}`).join('\n')}
